@@ -363,4 +363,5 @@ if __name__ == "__main__":
         max_duration=max_duration,
         overlap_duration=overlap_duration
     )
-    print(f"SRT transcription (first few lines):\n{srt_result.split('\\n\\n', 1)[0]}\n...")
+    backslash_char = "\\n\\n"
+    print(f"""SRT transcription (first few lines):\n{srt_result.split(backslash_char, 1)[0]}\n...""")
