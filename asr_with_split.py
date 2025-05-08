@@ -255,14 +255,14 @@ def format_time_srt(seconds: float) -> str:
     milliseconds = int((seconds - int(seconds)) * 1000)
     return f"{hours:02d}:{minutes:02d}:{int(seconds):02d},{milliseconds:03d}"
 
-def transcribe_and_save_text(
+def transcribe_text(
     audio_file: str,
     model: nemo_asr.models.ASRModel = None,
     max_duration: int = 60,
     overlap_duration: int = 10
 ) -> str:
     """
-    Transcribe audio file and save plain text result to a file in the result directory.
+    Transcribe audio file and return plain text result.
     
     Args:
         audio_file: Path to audio file
@@ -286,30 +286,16 @@ def transcribe_and_save_text(
         with_timestamps=False
     )
     
-    # Create result directory if it doesn't exist
-    result_dir = "result"
-    os.makedirs(result_dir, exist_ok=True)
-    
-    # Generate unique filename using timestamp
-    import datetime
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{result_dir}/transcription_{os.path.basename(audio_file)}_{timestamp}.txt"
-    
-    # Write result to file
-    with open(filename, "w") as f:
-        f.write(result["text"])
-    
-    print(f"Plain text transcription saved to: {filename}")
     return result["text"]
 
-def transcribe_and_save_srt(
+def transcribe_srt(
     audio_file: str,
     model: nemo_asr.models.ASRModel = None,
     max_duration: int = 60,
     overlap_duration: int = 10
 ) -> str:
     """
-    Transcribe audio file and save result in SRT format to a file in the result directory.
+    Transcribe audio file and return result in SRT format.
     
     Args:
         audio_file: Path to audio file
@@ -333,15 +319,6 @@ def transcribe_and_save_srt(
         with_timestamps=True
     )
     
-    # Create result directory if it doesn't exist
-    result_dir = "result"
-    os.makedirs(result_dir, exist_ok=True)
-    
-    # Generate unique filename using timestamp
-    import datetime
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{result_dir}/transcription_{os.path.basename(audio_file)}_{timestamp}.srt"
-    
     # Convert to SRT format
     srt_content = ""
     for i, stamp in enumerate(result["timestamp"]["segment"]):
@@ -356,11 +333,6 @@ def transcribe_and_save_srt(
         # Text
         srt_content += f"{stamp['segment']}\n\n"
     
-    # Write SRT content to file
-    with open(filename, "w") as f:
-        f.write(srt_content)
-    
-    print(f"SRT transcription saved to: {filename}")
     return srt_content
 
 # Example usage:
@@ -376,17 +348,19 @@ if __name__ == "__main__":
     overlap_duration = 10  # Overlap duration between segments in seconds
     
     # Get plain text transcription
-    text_result = transcribe_and_save_text(
+    text_result = transcribe_text(
         audio_file,
         asr_model,
         max_duration=max_duration,
         overlap_duration=overlap_duration
     )
+    print(f"Plain text transcription: {text_result[:100]}...")
     
     # Get SRT transcription
-    srt_result = transcribe_and_save_srt(
+    srt_result = transcribe_srt(
         audio_file,
         asr_model,
         max_duration=max_duration,
         overlap_duration=overlap_duration
     )
+    print(f"SRT transcription (first few lines):\n{srt_result.split('\\n\\n', 1)[0]}\n...")
