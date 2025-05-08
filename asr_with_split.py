@@ -239,39 +239,154 @@ def transcribe_long_audio(
     
     return merged_result
 
-# Load the AST model
-asr_model = nemo_asr.models.ASRModel.from_pretrained(model_name="nvidia/parakeet-tdt-0.6b-v2")
+def format_time_srt(seconds: float) -> str:
+    """
+    Format time in seconds to SRT format (HH:MM:SS,mmm).
+    
+    Args:
+        seconds: Time in seconds
+        
+    Returns:
+        Formatted time string in SRT format
+    """
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    seconds = seconds % 60
+    milliseconds = int((seconds - int(seconds)) * 1000)
+    return f"{hours:02d}:{minutes:02d}:{int(seconds):02d},{milliseconds:03d}"
 
-# Example usage
-audio_file = 'output.wav'
+def transcribe_and_save_text(
+    audio_file: str,
+    model: nemo_asr.models.ASRModel = None,
+    max_duration: int = 60,
+    overlap_duration: int = 10
+) -> str:
+    """
+    Transcribe audio file and save plain text result to a file in the result directory.
+    
+    Args:
+        audio_file: Path to audio file
+        model: ASR model (if None, will load the default model)
+        max_duration: Maximum duration of each segment in seconds
+        overlap_duration: Overlap duration between segments in seconds
+        
+    Returns:
+        Transcribed text
+    """
+    # Load model if not provided
+    if model is None:
+        model = nemo_asr.models.ASRModel.from_pretrained(model_name="nvidia/parakeet-tdt-0.6b-v2")
+    
+    # Transcribe audio
+    result = transcribe_long_audio(
+        audio_file,
+        model,
+        max_duration=max_duration,
+        overlap_duration=overlap_duration,
+        with_timestamps=False
+    )
+    
+    # Create result directory if it doesn't exist
+    result_dir = "result"
+    os.makedirs(result_dir, exist_ok=True)
+    
+    # Generate unique filename using timestamp
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{result_dir}/transcription_{os.path.basename(audio_file)}_{timestamp}.txt"
+    
+    # Write result to file
+    with open(filename, "w") as f:
+        f.write(result["text"])
+    
+    print(f"Plain text transcription saved to: {filename}")
+    return result["text"]
 
-# Parameters for long audio transcription
-max_duration = 60  # Maximum duration of each segment in seconds
-overlap_duration = 10  # Overlap duration between segments in seconds
+def transcribe_and_save_srt(
+    audio_file: str,
+    model: nemo_asr.models.ASRModel = None,
+    max_duration: int = 60,
+    overlap_duration: int = 10
+) -> str:
+    """
+    Transcribe audio file and save result in SRT format to a file in the result directory.
+    
+    Args:
+        audio_file: Path to audio file
+        model: ASR model (if None, will load the default model)
+        max_duration: Maximum duration of each segment in seconds
+        overlap_duration: Overlap duration between segments in seconds
+        
+    Returns:
+        SRT formatted string
+    """
+    # Load model if not provided
+    if model is None:
+        model = nemo_asr.models.ASRModel.from_pretrained(model_name="nvidia/parakeet-tdt-0.6b-v2")
+    
+    # Transcribe audio with timestamps
+    result = transcribe_long_audio(
+        audio_file,
+        model,
+        max_duration=max_duration,
+        overlap_duration=overlap_duration,
+        with_timestamps=True
+    )
+    
+    # Create result directory if it doesn't exist
+    result_dir = "result"
+    os.makedirs(result_dir, exist_ok=True)
+    
+    # Generate unique filename using timestamp
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{result_dir}/transcription_{os.path.basename(audio_file)}_{timestamp}.srt"
+    
+    # Convert to SRT format
+    srt_content = ""
+    for i, stamp in enumerate(result["timestamp"]["segment"]):
+        # Sequence number
+        srt_content += f"{i+1}\n"
+        
+        # Timestamps
+        start_time = format_time_srt(stamp["start"])
+        end_time = format_time_srt(stamp["end"])
+        srt_content += f"{start_time} --> {end_time}\n"
+        
+        # Text
+        srt_content += f"{stamp['segment']}\n\n"
+    
+    # Write SRT content to file
+    with open(filename, "w") as f:
+        f.write(srt_content)
+    
+    print(f"SRT transcription saved to: {filename}")
+    return srt_content
 
-"""
-without timestamps
-"""
-# result = transcribe_long_audio(
-#     audio_file, 
-#     asr_model, 
-#     max_duration=max_duration, 
-#     overlap_duration=overlap_duration,
-#     with_timestamps=False
-# )
-# print(result["text"])
-
-"""
-with timestamps
-"""
-result = transcribe_long_audio(
-    audio_file, 
-    asr_model, 
-    max_duration=max_duration, 
-    overlap_duration=overlap_duration,
-    with_timestamps=True
-)
-
-# Print segment timestamps
-for stamp in result["timestamp"]["segment"]:
-    print(f"{stamp['start']}s - {stamp['end']}s : {stamp['segment']}")
+# Example usage:
+if __name__ == "__main__":
+    # Load the ASR model
+    asr_model = nemo_asr.models.ASRModel.from_pretrained(model_name="nvidia/parakeet-tdt-0.6b-v2")
+    
+    # Example audio file
+    audio_file = 'output.wav'
+    
+    # Parameters for long audio transcription
+    max_duration = 60  # Maximum duration of each segment in seconds
+    overlap_duration = 10  # Overlap duration between segments in seconds
+    
+    # Get plain text transcription
+    text_result = transcribe_and_save_text(
+        audio_file,
+        asr_model,
+        max_duration=max_duration,
+        overlap_duration=overlap_duration
+    )
+    
+    # Get SRT transcription
+    srt_result = transcribe_and_save_srt(
+        audio_file,
+        asr_model,
+        max_duration=max_duration,
+        overlap_duration=overlap_duration
+    )
